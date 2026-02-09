@@ -131,9 +131,16 @@ def parse_stock_data(data, original_stock_code=None):
         
         # 获取股票代码
         code_part = parts[0]
-        full_code = code_part.split("_")[1].strip()
-        market = full_code[:2]
-        stock_code = full_code[2:]
+        # 修复：获取split("_")的最后一个元素，而不是第二个元素
+        split_parts = code_part.split("_")
+        if len(split_parts) >= 2:
+            full_code = split_parts[-1].strip()  # 获取最后一个元素
+            market = full_code[:2]
+            stock_code = full_code[2:]
+        else:
+            # 如果解析失败，使用原始股票代码
+            market = ""
+            stock_code = original_stock_code
         
         # 获取股票数据
         data_part = parts[1].strip().strip('"')
@@ -166,6 +173,17 @@ def parse_stock_data(data, original_stock_code=None):
         # 转换成交量和成交额为更易读的格式
         volume = int(stock_data[8]) // 100  # 转换为手
         amount = int(float(stock_data[9])) // 10000  # 转换为万元
+        
+        # 确定市场信息，优先使用解析出的市场代码，失败时根据股票代码前缀推断
+        market_name = market_map.get(market, "未知")
+        if market_name == "未知" and stock_code:
+            # 根据股票代码前缀推断市场
+            if stock_code.startswith("6") or stock_code.startswith("5"):
+                market_name = "上海"
+            elif stock_code.startswith("0"):
+                market_name = "深圳"
+            elif stock_code.startswith("8"):
+                market_name = "北京"
         
         # 构建股票信息字典
         stock_info = {
@@ -202,7 +220,7 @@ def parse_stock_data(data, original_stock_code=None):
             "卖五报价": float(stock_data[29]),
             "日期": stock_data[30],
             "时间": stock_data[31],
-            "市场": market_map.get(market, "未知"),
+            "市场": market_name,
             "涨跌额": round(change_price, 2),
             "涨跌幅": f"{round(change_percent, 2)}%"
         }
