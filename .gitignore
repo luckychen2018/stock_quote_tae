@@ -1,0 +1,18 @@
+# 忽略数据库文件
+stock_data.db
+
+# 忽略Python缓存文件
+__pycache__/
+*.pyc
+
+# 忽略锁文件
+*.lock
+
+# 忽略启动脚本生成的文件
+start_stock_monitor.bat
+start_stock_monitor.vbs
+
+# 忽略环境文件
+.env
+venv/
+env/
