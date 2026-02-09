@@ -1,0 +1,4 @@
+requests
+asciichartpy
+flask
+sqlalchemy

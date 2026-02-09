@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票行情监控系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        
+        .input-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .stock-input {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .stock-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .stock-name {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .stock-price {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .price-up {
+            color: #e74c3c;
+        }
+        
+        .price-down {
+            color: #27ae60;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .info-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .info-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .chart-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+        
+        .order-book {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .order-rows {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .buy-orders, .sell-orders {
+            flex: 1;
+        }
+        
+        .order-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .buy-price {
+            color: #e74c3c;
+        }
+        
+        .sell-price {
+            color: #27ae60;
+        }
+        
+        .loading-container {
+            position: relative;
+        }
+        
+        .loading {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            border-radius: 4px;
+            z-index: 10;
+        }
+        
+        @media (max-width: 768px) {
+            .stock-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .stock-price {
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>股票行情监控系统</h1>
+        
+        <div class="input-section loading-container">
+            <input type="text" class="stock-input" id="stockCode" placeholder="请输入股票代码" value="518880">
+            <button class="btn" onclick="getStockData()">获取数据</button>
+            <label class="switch" style="display: inline-block; margin: 0 10px;">
+                <input type="checkbox" id="autoRefreshToggle" onchange="toggleAutoRefresh()">
+                <span class="slider round" style="position: relative; display: inline-block; width: 60px; height: 34px; background-color: #ccc; border-radius: 34px; transition: .4s;"></span>
+            </label>
+            <span id="autoRefreshStatus" style="margin-right: 10px;">自动刷新: 关闭</span>
+            <button class="btn" onclick="addStockToWatchlist()" style="background-color: #9b59b6;">添加到关注</button>
+            <style>
+                .switch input { display: none; }
+                .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; border-radius: 50%; transition: .4s; }
+                input:checked + .slider { background-color: #27ae60; }
+                input:focus + .slider { box-shadow: 0 0 1px #27ae60; }
+                input:checked + .slider:before { transform: translateX(26px); }
+            </style>
+            <div class="loading" id="loading">加载中...</div>
+        </div>
+        
+        <div class="watchlist-section" style="background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 30px;">
+            <h3>关注列表</h3>
+            <div id="watchlistContent">加载中...</div>
+        </div>
+        
+        <div class="stock-info" id="stockInfo" style="display: none;">
+            <div class="stock-header">
+                <div class="stock-name" id="stockName"></div>
+                <div class="stock-price" id="stockPrice"></div>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">涨跌幅</div>
+                    <div class="info-value" id="changePercent"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">涨跌额</div>
+                    <div class="info-value" id="changePrice"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">今日开盘</div>
+                    <div class="info-value" id="openPrice"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">昨日收盘</div>
+                    <div class="info-value" id="preClose"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">今日最高</div>
+                    <div class="info-value" id="highPrice"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">今日最低</div>
+                    <div class="info-value" id="lowPrice"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">成交量</div>
+                    <div class="info-value" id="volume"></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">成交额</div>
+                    <div class="info-value" id="amount"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-section" id="chartSection" style="display: none;">
+            <h3>价格走势图</h3>
+            <div class="chart-container">
+                <canvas id="priceChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-section" id="dayChartSection" style="display: none;">
+            <h3>全天价格走势图</h3>
+            <div class="chart-container">
+                <canvas id="dayPriceChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="order-book" id="orderBook" style="display: none;">
+            <h3>买卖五档</h3>
+            <div class="order-header">
+                <div>买入</div>
+                <div>卖出</div>
+            </div>
+            <div class="order-rows">
+                <div class="buy-orders" id="buyOrders"></div>
+                <div class="sell-orders" id="sellOrders"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let priceChart;
+        let priceData = [];
+        let timeLabels = [];
+        let dayPriceChart;
+        let dayPriceData = [];
+        let dayTimeLabels = [];
+        let refreshInterval;
+        
+        function toggleAutoRefresh() {
+            const toggle = document.getElementById('autoRefreshToggle');
+            const status = document.getElementById('autoRefreshStatus');
+            
+            if (toggle.checked) {
+                // 启动自动刷新
+                startAutoRefresh();
+                status.textContent = '自动刷新: 开启';
+            } else {
+                // 停止自动刷新
+                stopAutoRefresh();
+                status.textContent = '自动刷新: 关闭';
+            }
+        }
+        
+        function startAutoRefresh() {
+            // 清除之前的定时器
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            // 每5秒刷新一次数据
+            refreshInterval = setInterval(() => {
+                getStockData();
+            }, 5000); // 5000毫秒 = 5秒
+        }
+        
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+        
+        function getStockData() {
+            const stockCode = document.getElementById('stockCode').value.trim();
+            if (!stockCode) {
+                alert('请输入股票代码');
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            
+            fetch(`/api/stock/${stockCode}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    displayStockInfo(data);
+                    displayOrderBook(data);
+                    updateChart(data['当前价格']);
+                    getDayStockData(stockCode);
+                    
+                    document.getElementById('stockInfo').style.display = 'block';
+                    document.getElementById('chartSection').style.display = 'block';
+                    document.getElementById('dayChartSection').style.display = 'block';
+                    document.getElementById('orderBook').style.display = 'block';
+                })
+                .catch(error => {
+                    document.getElementById('loading').style.display = 'none';
+                    alert('获取数据失败: ' + error.message);
+                });
+        }
+        
+        function getDayStockData(stockCode) {
+            fetch(`/api/stock/${stockCode}/day`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        console.error('获取全天价格数据失败:', data.error);
+                        return;
+                    }
+                    
+                    updateDayChart(data);
+                })
+                .catch(error => {
+                    console.error('获取全天价格数据失败:', error);
+                });
+        }
+        
+        function displayStockInfo(data) {
+            document.getElementById('stockName').textContent = `${data['股票代码']} ${data['股票名称']} (${data['市场']})`;
+            
+            const currentPrice = data['当前价格'];
+            const changePrice = data['涨跌额'];
+            const stockPriceElement = document.getElementById('stockPrice');
+            stockPriceElement.textContent = `${currentPrice} 元`;
+            stockPriceElement.className = 'stock-price ' + (changePrice >= 0 ? 'price-up' : 'price-down');
+            
+            document.getElementById('changePercent').textContent = data['涨跌幅'];
+            document.getElementById('changePrice').textContent = `${changePrice} 元`;
+            document.getElementById('openPrice').textContent = `${data['今日开盘价']} 元`;
+            document.getElementById('preClose').textContent = `${data['昨日收盘价']} 元`;
+            document.getElementById('highPrice').textContent = `${data['今日最高价']} 元`;
+            document.getElementById('lowPrice').textContent = `${data['今日最低价']} 元`;
+            document.getElementById('volume').textContent = data['成交量'];
+            document.getElementById('amount').textContent = data['成交额'];
+        }
+        
+        function displayOrderBook(data) {
+            const buyOrdersHtml = `
+                <div class="order-row"><span class="buy-price">${data['买一报价']} 元</span><span>${data['买一申报']}手</span></div>
+                <div class="order-row"><span class="buy-price">${data['买二报价']} 元</span><span>${data['买二申报']}手</span></div>
+                <div class="order-row"><span class="buy-price">${data['买三报价']} 元</span><span>${data['买三申报']}手</span></div>
+                <div class="order-row"><span class="buy-price">${data['买四报价']} 元</span><span>${data['买四申报']}手</span></div>
+                <div class="order-row"><span class="buy-price">${data['买五报价']} 元</span><span>${data['买五申报']}手</span></div>
+            `;
+            
+            const sellOrdersHtml = `
+                <div class="order-row"><span class="sell-price">${data['卖一报价']} 元</span><span>${data['卖一申报']}手</span></div>
+                <div class="order-row"><span class="sell-price">${data['卖二报价']} 元</span><span>${data['卖二申报']}手</span></div>
+                <div class="order-row"><span class="sell-price">${data['卖三报价']} 元</span><span>${data['卖三申报']}手</span></div>
+                <div class="order-row"><span class="sell-price">${data['卖四报价']} 元</span><span>${data['卖四申报']}手</span></div>
+                <div class="order-row"><span class="sell-price">${data['卖五报价']} 元</span><span>${data['卖五申报']}手</span></div>
+            `;
+            
+            document.getElementById('buyOrders').innerHTML = buyOrdersHtml;
+            document.getElementById('sellOrders').innerHTML = sellOrdersHtml;
+        }
+        
+        function updateChart(price) {
+            const now = new Date();
+            const timeLabel = now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds();
+            
+            priceData.push(price);
+            timeLabels.push(timeLabel);
+            
+            // 保持数据点不超过20个
+            if (priceData.length > 20) {
+                priceData.shift();
+                timeLabels.shift();
+            }
+            
+            if (!priceChart) {
+                const ctx = document.getElementById('priceChart').getContext('2d');
+                priceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: timeLabels,
+                        datasets: [{
+                            label: '价格 (元)',
+                            data: priceData,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                priceChart.data.labels = timeLabels;
+                priceChart.data.datasets[0].data = priceData;
+                priceChart.update();
+            }
+        }
+        
+        function updateDayChart(data) {
+            // 清空之前的数据
+            dayPriceData = [];
+            dayTimeLabels = [];
+            
+            // 处理数据
+            data.forEach(item => {
+                dayPriceData.push(item.current_price);
+                dayTimeLabels.push(item.time);
+            });
+            
+            if (!dayPriceChart) {
+                const ctx = document.getElementById('dayPriceChart').getContext('2d');
+                dayPriceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dayTimeLabels,
+                        datasets: [{
+                            label: '价格 (元)',
+                            data: dayPriceData,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                dayPriceChart.data.labels = dayTimeLabels;
+                dayPriceChart.data.datasets[0].data = dayPriceData;
+                dayPriceChart.update();
+            }
+        }
+        
+        // 获取关注列表数据
+        function getWatchlist() {
+            fetch('/api/watchlist')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('watchlistContent').innerHTML = `错误: ${data.error}`;
+                        return;
+                    }
+                    
+                    let watchlistHtml = '';
+                    if (data.length === 0) {
+                        watchlistHtml = '<p>关注列表为空，请添加股票</p>';
+                    } else {
+                        watchlistHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">';
+                        data.forEach(item => {
+                            watchlistHtml += `
+                                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between;">
+                                    <div>
+                                        <div style="font-weight: bold;">${item.stock_code} ${item.stock_name}</div>
+                                        <div style="font-size: 14px; color: #666;">${item.market}</div>
+                                        <div style="font-size: 12px; color: #999; margin-top: 5px;">${item.added_at}</div>
+                                    </div>
+                                    <div style="margin-top: 10px; display: flex; gap: 5px;">
+                                        <button onclick="getStockDataByCode('${item.stock_code}')" style="padding: 5px 10px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">查看</button>
+                                        <button onclick="removeFromWatchlist(${item.id})" style="padding: 5px 10px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">删除</button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        watchlistHtml += '</div>';
+                    }
+                    
+                    document.getElementById('watchlistContent').innerHTML = watchlistHtml;
+                })
+                .catch(error => {
+                    document.getElementById('watchlistContent').innerHTML = `获取关注列表失败: ${error.message}`;
+                });
+        }
+        
+        // 添加股票到关注列表
+        function addStockToWatchlist() {
+            const stockCode = document.getElementById('stockCode').value.trim();
+            if (!stockCode) {
+                alert('请输入股票代码');
+                return;
+            }
+            
+            fetch('/api/watchlist/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ stock_code: stockCode })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert(data.message);
+                    // 刷新关注列表
+                    getWatchlist();
+                }
+            })
+            .catch(error => {
+                alert(`添加到关注列表失败: ${error.message}`);
+            });
+        }
+        
+        // 从关注列表中删除股票
+        function removeFromWatchlist(itemId) {
+            if (confirm('确定要从关注列表中删除这只股票吗？')) {
+                fetch(`/api/watchlist/remove/${itemId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                        // 刷新关注列表
+                        getWatchlist();
+                    }
+                })
+                .catch(error => {
+                    alert(`从关注列表中删除失败: ${error.message}`);
+                });
+            }
+        }
+        
+        // 根据股票代码获取数据
+        function getStockDataByCode(stockCode) {
+            document.getElementById('stockCode').value = stockCode;
+            getStockData();
+        }
+        
+        // 页面加载时默认获取数据
+        window.onload = function() {
+            getStockData();
+            getWatchlist();
+        };
+    </script>
+</body>
+</html>
