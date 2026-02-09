@@ -20,7 +20,7 @@ from app import Watchlist, StockQuote
 running = False
 
 # 数据获取间隔（秒）
-FETCH_INTERVAL = 300  # 5分钟
+FETCH_INTERVAL = 10  # 10秒
 
 # 锁文件路径
 LOCK_FILE = 'background_service.lock'

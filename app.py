@@ -101,63 +101,108 @@ def get_stock_data(stock_code):
     session = Session()
     try:
         # 检查是否在交易时间内
-        if not is_trading_time():
-            session.close()
-            return jsonify({'error': '当前不在股票交易时间内，请在交易时间（周一至周五 9:30-11:30, 13:00-15:00）查询股票信息'}), 400
-        
-        # 调用现有的get_stock_quote函数获取股票数据
-        stock_info = get_stock_quote.get_stock_quote(stock_code)
-        if stock_info:
-            # 存储数据到数据库
-            try:
-                stock_quote = StockQuote(
-                    stock_code=stock_info['股票代码'],
-                    stock_name=stock_info['股票名称'],
-                    market=stock_info['市场'],
-                    current_price=stock_info['当前价格'],
-                    change_price=stock_info['涨跌额'],
-                    change_percent=float(stock_info['涨跌幅'].replace('%', '')),
-                    open_price=stock_info['今日开盘价'],
-                    pre_close=stock_info['昨日收盘价'],
-                    high_price=stock_info['今日最高价'],
-                    low_price=stock_info['今日最低价'],
-                    volume=stock_info['成交量'],
-                    amount=stock_info['成交额'],
-                    buy1_price=stock_info['买一报价'],
-                    buy1_amount=stock_info['买一申报'],
-                    buy2_price=stock_info['买二报价'],
-                    buy2_amount=stock_info['买二申报'],
-                    buy3_price=stock_info['买三报价'],
-                    buy3_amount=stock_info['买三申报'],
-                    buy4_price=stock_info['买四报价'],
-                    buy4_amount=stock_info['买四申报'],
-                    buy5_price=stock_info['买五报价'],
-                    buy5_amount=stock_info['买五申报'],
-                    sell1_price=stock_info['卖一报价'],
-                    sell1_amount=stock_info['卖一申报'],
-                    sell2_price=stock_info['卖二报价'],
-                    sell2_amount=stock_info['卖二申报'],
-                    sell3_price=stock_info['卖三报价'],
-                    sell3_amount=stock_info['卖三申报'],
-                    sell4_price=stock_info['卖四报价'],
-                    sell4_amount=stock_info['卖四申报'],
-                    sell5_price=stock_info['卖五报价'],
-                    sell5_amount=stock_info['卖五申报'],
-                    date=stock_info['日期'],
-                    time=stock_info['时间']
-                )
-                session.add(stock_quote)
-                session.commit()
-            except Exception as db_error:
-                session.rollback()
-                print(f"数据库存储失败: {db_error}")
-            finally:
+        if is_trading_time():
+            # 在交易时间内，实时获取股票数据
+            stock_info = get_stock_quote.get_stock_quote(stock_code)
+            if stock_info:
+                # 存储数据到数据库
+                try:
+                    stock_quote = StockQuote(
+                        stock_code=stock_info['股票代码'],
+                        stock_name=stock_info['股票名称'],
+                        market=stock_info['市场'],
+                        current_price=stock_info['当前价格'],
+                        change_price=stock_info['涨跌额'],
+                        change_percent=float(stock_info['涨跌幅'].replace('%', '')),
+                        open_price=stock_info['今日开盘价'],
+                        pre_close=stock_info['昨日收盘价'],
+                        high_price=stock_info['今日最高价'],
+                        low_price=stock_info['今日最低价'],
+                        volume=stock_info['成交量'],
+                        amount=stock_info['成交额'],
+                        buy1_price=stock_info['买一报价'],
+                        buy1_amount=stock_info['买一申报'],
+                        buy2_price=stock_info['买二报价'],
+                        buy2_amount=stock_info['买二申报'],
+                        buy3_price=stock_info['买三报价'],
+                        buy3_amount=stock_info['买三申报'],
+                        buy4_price=stock_info['买四报价'],
+                        buy4_amount=stock_info['买四申报'],
+                        buy5_price=stock_info['买五报价'],
+                        buy5_amount=stock_info['买五申报'],
+                        sell1_price=stock_info['卖一报价'],
+                        sell1_amount=stock_info['卖一申报'],
+                        sell2_price=stock_info['卖二报价'],
+                        sell2_amount=stock_info['卖二申报'],
+                        sell3_price=stock_info['卖三报价'],
+                        sell3_amount=stock_info['卖三申报'],
+                        sell4_price=stock_info['卖四报价'],
+                        sell4_amount=stock_info['卖四申报'],
+                        sell5_price=stock_info['卖五报价'],
+                        sell5_amount=stock_info['卖五申报'],
+                        date=stock_info['日期'],
+                        time=stock_info['时间']
+                    )
+                    session.add(stock_quote)
+                    session.commit()
+                except Exception as db_error:
+                    session.rollback()
+                    print(f"数据库存储失败: {db_error}")
+                
                 session.close()
-            
-            return jsonify(stock_info)
+                return jsonify(stock_info)
+            else:
+                session.close()
+                return jsonify({'error': '获取股票数据失败'}), 404
         else:
-            session.close()
-            return jsonify({'error': '获取股票数据失败'}), 404
+            # 不在交易时间内，返回数据库中的最新数据
+            latest_quote = session.query(StockQuote)\
+                .filter_by(stock_code=stock_code)\
+                .order_by(StockQuote.created_at.desc())\
+                .first()
+            
+            if latest_quote:
+                stock_info = {
+                    '股票代码': latest_quote.stock_code,
+                    '股票名称': latest_quote.stock_name,
+                    '市场': latest_quote.market,
+                    '当前价格': latest_quote.current_price,
+                    '涨跌额': latest_quote.change_price,
+                    '涨跌幅': f"{latest_quote.change_percent}%",
+                    '今日开盘价': latest_quote.open_price,
+                    '昨日收盘价': latest_quote.pre_close,
+                    '今日最高价': latest_quote.high_price,
+                    '今日最低价': latest_quote.low_price,
+                    '成交量': latest_quote.volume,
+                    '成交额': latest_quote.amount,
+                    '买一报价': latest_quote.buy1_price,
+                    '买一申报': latest_quote.buy1_amount,
+                    '买二报价': latest_quote.buy2_price,
+                    '买二申报': latest_quote.buy2_amount,
+                    '买三报价': latest_quote.buy3_price,
+                    '买三申报': latest_quote.buy3_amount,
+                    '买四报价': latest_quote.buy4_price,
+                    '买四申报': latest_quote.buy4_amount,
+                    '买五报价': latest_quote.buy5_price,
+                    '买五申报': latest_quote.buy5_amount,
+                    '卖一报价': latest_quote.sell1_price,
+                    '卖一申报': latest_quote.sell1_amount,
+                    '卖二报价': latest_quote.sell2_price,
+                    '卖二申报': latest_quote.sell2_amount,
+                    '卖三报价': latest_quote.sell3_price,
+                    '卖三申报': latest_quote.sell3_amount,
+                    '卖四报价': latest_quote.sell4_price,
+                    '卖四申报': latest_quote.sell4_amount,
+                    '卖五报价': latest_quote.sell5_price,
+                    '卖五申报': latest_quote.sell5_amount,
+                    '日期': latest_quote.date,
+                    '时间': latest_quote.time
+                }
+                session.close()
+                return jsonify(stock_info)
+            else:
+                session.close()
+                return jsonify({'error': '数据库中没有该股票的历史数据'}), 404
     except Exception as e:
         session.close()
         return jsonify({'error': str(e)}), 500
